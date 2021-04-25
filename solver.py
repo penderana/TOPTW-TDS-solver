@@ -23,13 +23,14 @@ def ordenar(array):
 def contenido(array):
     interior = []
     
-    for valor in contenido:
+    for valor in array:
         if valor == 0:
             break
         else:
             interior.append(valor)
             
     return interior, len(interior)
+
 
 def generar_solucion_aleatoria(n):
     solucion = []
@@ -62,24 +63,39 @@ def fitness(array,factores):
 
 def mutar(array):
     probabilidad = r.randint(1,4)
-
+    probabilidad = 2
+    nuevo_array = np.copy(array)
+    
     if probabilidad == 1 : #aniadimos un cero
         _, tam = contenido(array)
         indice = r.randint(0,tam-1)
-        nuevo_array = np.copy(array)
+        #nuevo_array = np.copy(array)
         nuevo_array[indice] = 0
         nuevo_array = ordenar(nuevo_array)
 
     elif probabilidad == 2: #quitamos un cero
         dentro, m = contenido(array)
-        nuevo_valor = r.choice(list(range(0,len(array)))-dentro)
+        #nuevo_valor = r.choice(list(range(0,len(array)))-dentro)
+        numeros = list(range(0,len(array)))
+        print(numeros)
+        print(dentro)
+        #todo: hacer diferencia de listas
+        #print([elemento if elemento in dentro for elemento in numeros])
         nuevo_array = np.copy(array)
         nuevo_array[m] = nuevo_valor
         
     elif probabilidad == 3: #cambiamos uno
         _,tam = contenido(array)
+        indice1 = r.randint(0,tam-1)
+        indice2 = r.randint(0,tam-1)
+        #nuevo_array = np.copy(array)
+        nuevo_array[indice1] = array[indice2]
+        nuevo_array[indice2] = array[indice1]
+        
+    return nuevo_array
         
         
-#print(generar_solucion_aleatoria(10))
-    
-print(fitness(generar_solucion_aleatoria(10),generar_solucion_aleatoria(10)))
+ejemplo = generar_solucion_aleatoria(10)
+print(ejemplo)
+mutado = mutar(ejemplo)
+print(mutado)
