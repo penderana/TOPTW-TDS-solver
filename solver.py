@@ -7,6 +7,7 @@ Created on Thu Apr 22 19:24:38 2021
 
 import random as r
 import numpy as np
+import matplotlib.pyplot as plt
 
 def ordenar(array):
     nuevo_array = []
@@ -55,25 +56,28 @@ def generar_solucion_aleatoria(n):
 
 def get_factor(i,j):
     
-    if i < 500:
-        return j
-    elif i > 500 and i < 100:
+    if i < 333:
+        return 1
+    elif i > 333 and i < 666:
         if j < 50:
-            return 50
+            return 5
         else:
-            return -100
+            return -10
     else:
         if j < 50:
-            return -75
+            return -7
         else:
-            return 150
+            return 15
 
 
 def fitness(array,iteracion):
     valor = 0
     
     for i in range(0,len(array)):
-        valor += array[i] * get_factor(iteracion,array[i])
+        valor += array[i] + get_factor(iteracion,array[i])
+
+    if valor == 0:
+        valor = -1
         
     return valor
 
@@ -86,8 +90,12 @@ def fitness(array,iteracion):
 #    return valor
 
 
-def mutar(array):
-    probabilidad = r.randint(1,4)
+def vecindario(array):
+    if array[0] == 0:
+        probabilidad = 2
+    else:
+       probabilidad = r.randint(1,4)
+       
     nuevo_array = np.copy(array)
     
     if probabilidad == 1 : #aniadimos un cero
@@ -136,85 +144,90 @@ def cruce(padre,madre):
 def generacional():
     N = 300 #poblacion de 30
     M = 100 #numero de columnas
-    Pm = 0.3
+    T = 50
+    mejor_fitness = 0
+    mejores_resultados = []
     
     poblacion = []
     for i in range(0,N):
         poblacion.append(generar_solucion_aleatoria(M))
         
     
-    print(len(poblacion))
-    for i in range(0,1500):
-
-# =============================================================================
-#         PARTE 0: GUARDAMOS EL MEJOR INDIVIDUO POR SI LO PERDEMOS
-# =============================================================================
-
-#        mex = 0
-#        
-#        for k in range(1,N):
-##            print(poblacion[k].calificacion)
-#            if fitness(poblacion[k]) > fitness(poblacion[mex]):
-#                mex = k
-#                
-#        mejor_individuo = poblacion[mex]
-      
-        
-        
-# =============================================================================
-#         PARTE 1: TORNEO BINARIO. ELEGIMOS DOS CROMOSOMAS AL AZAR Y
-#         LO ANIADIMOS A LA NUEVA POBLACION.
-# =============================================================================
-        
-        poblacion_prima = []
-#        aleatorios = r.sample(range(N),k=N)
-        
-        for j in range(0,N): 
-            w1 = r.randrange(N)
-            w2 = r.randrange(N)
-#            w1 = aleatorios[j]
-#            w2 = aleatorios[N-j-1] 
-
-            if fitness(poblacion[w1],i) > fitness(poblacion[w2],i):
-                poblacion_prima.append(poblacion[w1])
-            else:
-#                poblacion_prima.append(cromosoma(M,iteracion,poblacion[w2].w))
-                poblacion_prima.append(poblacion[w2])
-
-
-                
     
-# =============================================================================
-#         PARTE 3: MUTACIONES. HACEMOS LO MISMO QUE ANTES: CALCULAMOS LA ESPERANZA
-#         DEL NUMERO DE MUTACIONES QUE HABRÁ. GENERAMOS UN NUMERO ALEATORIO Y SELECCIONAMOS
-#         ALEATORIAMENTE LA FILA Y LA COLUMNA A MUTAR.
-#         
-#         ESPERANZA MATEMATICA:
-#         NUMERO ESPERADO DE MUTACIONES: Pm * N * M
-# =============================================================================
+    for i in range(0,1000):
         
-        mutaciones = (int)(N * Pm)
+# =============================================================================
+#         ABEJAS EMPLEADAS
+# =============================================================================
+        for j in range(0,N):
+            vecino = vecindario(poblacion[j])
 
-        
-        for j in range(0,mutaciones):
-
-            poblacion_prima[j] = mutar(poblacion_prima[j])
+            delta = (fitness(vecino,i) - fitness(poblacion[j],i) ) / fitness(poblacion[j],i)
             
+            if delta >= 0:
+                poblacion[j] = vecino
+            else:
+                r = np.random.rand(1,1)
+                if r < np.exp(delta/T):
+                    poblacion[j] = vecino
+                    
 # =============================================================================
-#     FINAL: BUSCAMOS EL MEJOR CROMOSOMA DE LA POBLACION FINAL
-#     PARA DEVOLVERLO, Y EVALUARLO DESPUES CON EL TEST.
+#         ABEJAS EXPLORADORAS
 # =============================================================================
-    mex = 0
-        
-    for k in range(1,N):
-        if fitness(poblacion[k],i) > fitness(poblacion[mex],i):
-            mex = k
+        for j in range(0,N):     
+            
+            sumatorio = 0
+            for k in range(0,N):
+                sumatorio += fitness(poblacion[k],i)
+            
+            probabilidad = fitness(poblacion[j],i) / sumatorio
+            
+            r = np.random.rand(1,1)
+            
+            if r < probabilidad:
+                vecino = vecindario(poblacion[j])
                 
-    mejor_individuo = poblacion[mex]
+                delta = (fitness(vecino,i) - fitness(poblacion[j],i) ) / fitness(poblacion[j],i)
+            
+                if delta >= 0:
+                    poblacion[j] = vecino
+                else:
+                    r = np.random.rand(1,1)
+                    if r < np.exp(delta/T):
+                        poblacion[j] = vecino
+                        
+# =============================================================================
+#             MEJOR SOLUCION LOCAL
+# =============================================================================
+        current = 0
+        for j in range(0,N):
+            if fitness(poblacion[j],i) > current:
+                current = fitness(poblacion[j],i)
+        mejores_resultados.append(current)
+                        
+# =============================================================================
+#           MEJOR SOLUCION
+# =============================================================================
+        for j in range(0,N):
+            if fitness(poblacion[j],i) > mejor_fitness:
+                mejor_fitness = fitness(poblacion[j],i)
+                mejor_elemento = poblacion[j]
+                mejor_iteracion = i                      
     
-    return mejor_individuo, fitness(mejor_individuo,i)
+# =============================================================================
+#         ENFRIAMIENTO
+# =============================================================================
+        if i % 10 == 0:
+            T *= 0.98              
+        
+                    
+                
+    
+    return mejor_elemento, mejor_iteracion, mejor_fitness, mejores_resultados
         
 
-    
-        
-print(generacional())
+
+elemento, iteracion, valor, lista = generacional()
+print(elemento, iteracion, valor)
+plt.plot(lista)
+plt.show()
