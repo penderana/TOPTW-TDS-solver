@@ -9,50 +9,23 @@ import random as r
 import numpy as np
 import matplotlib.pyplot as plt
 
-f = open("c_r_rc_100_50/50_c103.txt")
+f = open("c_r_rc_100_50/50_c103_processed.txt")
 datos = f.readlines()
 f.close()
-
-
-
-
-indices = [4,8,9]
-contenido = []
-profits = []
-puntuaciones = []
-intervalo = []
-duraciones = []
-duraciones_ = []
-
-for i in range(2,53):
-    if i < 12:
-        contenido.append(datos[i].split(" ")[10:12])
-        duraciones_.append(datos[i].split(" ")[5:6])
-        profits.append(datos[i].split(" ")[6:7])
-    else:
-        contenido.append(datos[i].split(" ")[9:11])
-        duraciones_.append(datos[i].split(" ")[4:5])
-        profits.append(datos[i].split(" ")[5:6])
-        
-
-
-for i in range(0,51):
-    puntuaciones.append(float(profits[i][0]))   
-    duraciones.append(float(duraciones_[i][0]))
-    if i > 0:
-        intervalo.append([int(contenido[i][0]),int(contenido[i][1])])
-    else:
-        intervalo.append([0,int(contenido[i][0])])
-        
 
 diccionario_intervalos = {}
 diccionario_duraciones = {}
 diccionario_puntuaciones = {}
+diccionario_distancias =  {}
+diccionario_factores = {}
 
 for i in range(0,51):
-    diccionario_intervalos[i] = intervalo[i]
-    diccionario_duraciones[i] = duraciones[i]
-    diccionario_puntuaciones[i] = puntuaciones[i]
+    separado = datos[i].split(" ")
+    diccionario_distancias[i] = separado[0:51]
+    diccionario_duraciones[i] = separado[51:52]
+    diccionario_puntuaciones[i] = separado[52:53]
+    diccionario_intervalos[i] = separado[53:55]
+    diccionario_factores[i] = separado[55:59]
     
     
 def ordenar(array):
@@ -130,33 +103,50 @@ def visualizar_proceso_solucion(array):
             
     plt.plot(numeros)
     
-def comprobar(array):
-    indices = np.zeros(len(array))
-    indices[0] = 1
-    T = 16
-    T_MAX = (diccionario_intervalos[0])[1]
+def arreglar(array):
+    #QUITAMOS NODOS QUE NO SE PUEDAN VISITAR PORQUE VIOLEN RESTRICCIONES
+    bueno = np.zeros(len(array))
+    T_MAX = float((diccionario_intervalos[0])[1])
+    T = 0
+    contador = 1
     
-    if array[0] == 0:
-        for i in range(1,len(array)):
-            elemento = array[i]
-            if elemento != 0:
-                coste = diccionario_duraciones[elemento]+T #falta incluir el coste de traspaso de nodo a nodo
-                #if T >= (diccionario_intervalos[elemento])[0] and coste < (diccionario_intervalos[elemento])[1] and coste < T_MAX:
-                if T >= (diccionario_intervalos[elemento])[0] and T < (diccionario_intervalos[elemento])[1] and coste < T_MAX:
-                    T = coste
-                    indices[i] = 1
-            
-    return indices
+    for i in range(1,len(array)):
+        elemento = array[i]
+        
+        #la restriccion es que no sobrepasemos el tiempo entre ir al siguiente nodo y lo que dure su estancia
+        coste_ir = float(diccionario_distancias[elemento][int(array[i-1])]) + float(diccionario_duraciones[elemento][0])
+        
+        if coste_ir + T <= T_MAX:
+            bueno[contador] = elemento
+            contador += 1
+            T += coste_ir
+        
+    return bueno
+
+#def comprobar(array):
+#    indices = np.zeros(len(array))
+#    indices[0] = 1
+#    T = 0
+#    T_MAX = (diccionario_intervalos[0])[1]
+#    
+#    if array[0] == 0:
+#        for i in range(1,len(array)):
+#            elemento = array[i]
+#            if elemento != 0:
+#                coste = diccionario_duraciones[elemento]+T #falta incluir el coste de traspaso de nodo a nodo
+#                #if T >= (diccionario_intervalos[elemento])[0] and coste < (diccionario_intervalos[elemento])[1] and coste < T_MAX:
+#                if T >= (diccionario_intervalos[elemento])[0] and T < (diccionario_intervalos[elemento])[1] and coste < T_MAX:
+#                    T = coste
+#                    indices[i] = 1
+#            
+#    return indices
 
 def fitness(array,T):
     valor = 0
-    indices = comprobar(array)
     
     for i in range(0,len(array)):
-        if indices[i]:
-            valor += diccionario_puntuaciones[i] 
-
-        
+        if i == 0 or array[i] != 0:
+            valor += float(diccionario_puntuaciones[int(array[i])][0]) * float(diccionario_factores[int(array[i])][T])
 
     return valor
 
@@ -182,31 +172,40 @@ def fitness(array,T):
 
 def vecindario(array):
     _,tam = contenido(array)
-    if tam > 2:
-        probabilidad = r.randint(1,3)
+    if tam > 1:
+        probabilidad = r.randint(1,4)
     else:
         probabilidad = 2
        
     nuevo_array = np.copy(array)
     
-    if probabilidad == 1 : #aniadimos un cero
+    if probabilidad == 1 : # invertirmos un subsitring
         _, tam = contenido(array)
-        indice = r.randint(0,tam-1)
-        nuevo_array = np.copy(array)
-        nuevo_array[indice] = 0
-        nuevo_array = ordenar(nuevo_array)
+        indice1 = r.randint(0,tam-1)
+        indice2 = r.randint(0,tam-1)
+        
+        if indice1 > indice2:
+            nuevo_array[indice2:indice1] = array[indice2:indice1:-1]
+        else:
+            nuevo_array[indice1:indice2] = array[indice1:indice2:-1]
+
 
     elif probabilidad == 2: #quitamos un cero
         dentro, m = contenido(array)
-        if m != len(array):
+        if m <= 1:
+            indice = 1
+        else:
+            indice = r.randint(1,m-1)
+        if m < len(array):
             numeros = set(range(0,len(array)))
             dentro = set(dentro)
             diferencia = numeros.difference(dentro)
             nuevo_valor = r.choice(list(diferencia))
             nuevo_array = np.copy(array)
-            nuevo_array[m] = nuevo_valor
+            nuevo_array[indice] = nuevo_valor
+            
         
-    elif probabilidad == 3: #cambiamos uno
+    elif probabilidad == 3: #swap de posiciones
         _,tam = contenido(array)
         indice1 = r.randint(0,tam-1)
         indice2 = r.randint(0,tam-1)
@@ -214,25 +213,63 @@ def vecindario(array):
         nuevo_array[indice1] = array[indice2]
         nuevo_array[indice2] = array[indice1]
         
+    elif probabilidad == 4: #swap de posicion con posicion anterior
+        _,tam = contenido(array)
+        indice1 = r.randint(1,tam-1)
+        indice2 = r.randint(1,tam-1)
+        valor = nuevo_array.pop(indice1)
+        nuevo_array.insert(indice2,valor)
+
+        
     nuevo_array[0] = 0 # forzamos a correcta solucion
     
-    return list(nuevo_array)
+    return arreglar(list(nuevo_array)) #Trabajamos siempre con soluciones factibles
         
     
-def cruce(padre,madre):
-    N = len(padre)
-    solucion = np.zeros(N)
-    dentro, m_padre = contenido(padre)
-    dentro, m_madre = contenido(madre)
-    
-    if m_padre < m_madre:
-        solucion[:m_padre] = madre[:m_padre]
-    else:
-        solucion[:m_madre] = padre[:m_madre]
-    
-    return solucion
+#def cruce(padre,madre):
+#    N = len(padre)
+#    solucion = np.zeros(N)
+#    dentro, m_padre = contenido(padre)
+#    dentro, m_madre = contenido(madre)
+#    
+#    if m_padre < m_madre:
+#        solucion[:m_padre] = madre[:m_padre]
+#    else:
+#        solucion[:m_madre] = padre[:m_madre]
+#    
+#    return solucion
 
-
+def ensenar_ruta(ruta):
+    elementos = comprobar(ruta)
+    lista = []
+    contador = 0
+    
+    for i in range(0,len(ruta)):
+        if elementos[i]:
+            contador += 1
+            lista.append(dicionario_coordenadas[ruta[i]][0])
+            lista.append(dicionario_coordenadas[ruta[i]][1])
+            if i+1 < len(ruta) - 1:
+                for j in range(i+1,len(ruta)):
+                    if elementos[j]:
+                        break
+            else:
+                j = 0
+            lista.append(dicionario_coordenadas[ruta[j]][0] - dicionario_coordenadas[ruta[i]][0])
+            lista.append(dicionario_coordenadas[ruta[j]][1] - dicionario_coordenadas[ruta[i]][1])
+            
+    lista = np.reshape(lista,(contador,4))
+    lista = np.array(lista,np.float64)
+        
+    plt.scatter(lista[:,0],lista[:,1],s=20*2**3)
+    plt.quiver(lista[:,0],lista[:,1], lista[:,2], lista[:,3], angles='xy', scale=1, scale_units='xy')
+    
+    plt.xlim(5,50)
+    plt.ylim(20,100)
+    plt.show()
+    
+    return lista
+        
 
 def generacional():
     N = 300 #poblacion de 300
@@ -245,20 +282,31 @@ def generacional():
     mejor_iteracion = -1
     
     for i in range(0,N):
-        poblacion.append(generar_solucion_aleatoria(M))
+        poblacion.append(arreglar(generar_solucion_aleatoria(M)))
         
     
-    
-    for i in range(0,1500):
+
+    for i in range(0,700):
         
+        horario = i % 100
+        
+        if horario < 25:
+            epoca = 0
+        elif horario >= 25 and horario < 50:
+            epoca = 1
+        elif horario >= 50 and horario < 75:
+            epoca = 2
+        elif horario >= 75:
+            epoca = 3
+  
 # =============================================================================
 #         ABEJAS EMPLEADAS
 # =============================================================================
         for j in range(0,N):
             vecino = vecindario(poblacion[j])
 
-            if fitness(poblacion[j],i) != 0:
-                delta = (fitness(vecino,i) - fitness(poblacion[j],i) ) / fitness(poblacion[j],i)
+            if fitness(poblacion[j],epoca) != 0:
+                delta = (fitness(vecino,epoca) - fitness(poblacion[j],epoca) ) / fitness(poblacion[j],epoca)
             else:
                 delta = 1
             
@@ -276,10 +324,10 @@ def generacional():
             
             sumatorio = 0
             for k in range(0,N):
-                sumatorio += fitness(poblacion[k],i)
+                sumatorio += fitness(poblacion[k],epoca)
             
             if sumatorio != 0:
-                probabilidad = fitness(poblacion[j],i) / sumatorio
+                probabilidad = fitness(poblacion[j],epoca) / sumatorio
             else:
                 probabilidad = 0
             
@@ -288,8 +336,8 @@ def generacional():
             if r < probabilidad:
                 vecino = vecindario(poblacion[j])
                 
-                if fitness(poblacion[j],i) != 0:
-                    delta = (fitness(vecino,i) - fitness(poblacion[j],i) ) / fitness(poblacion[j],i)
+                if fitness(poblacion[j],epoca) != 0:
+                    delta = (fitness(vecino,epoca) - fitness(poblacion[j],epoca) ) / fitness(poblacion[j],epoca)
                 else:
                     delta = 1
             
@@ -305,16 +353,16 @@ def generacional():
 # =============================================================================
         current = 0
         for j in range(0,N):
-            if fitness(poblacion[j],i) > current:
-                current = fitness(poblacion[j],i)
+            if fitness(poblacion[j],epoca) > current:
+                current = fitness(poblacion[j],epoca)
         mejores_resultados.append(current)
                         
 # =============================================================================
 #           MEJOR SOLUCION
 # =============================================================================
         for j in range(0,N):
-            if fitness(poblacion[j],i) > mejor_fitness:
-                mejor_fitness = fitness(poblacion[j],i)
+            if fitness(poblacion[j],epoca) > mejor_fitness:
+                mejor_fitness = fitness(poblacion[j],epoca)
                 mejor_elemento = poblacion[j]
                 mejor_iteracion = i       
                 
@@ -322,13 +370,13 @@ def generacional():
 # =============================================================================
 #             HBC
 # =============================================================================
-        poblacion = []     
-        for j in range(0,N):
-            poblacion.append(generar_solucion_aleatoria(M))
-        for j in range(0,N):
-            if fitness(poblacion[j],i) < mejor_fitness:
-                poblacion[j] = mejor_elemento
-                break
+#        poblacion = []     
+#        for j in range(0,N):
+#            poblacion.append(generar_solucion_aleatoria(M))
+#        for j in range(0,N):
+#            if fitness(poblacion[j]) < mejor_fitness:
+#                poblacion[j] = mejor_elemento
+#                break
     
 # =============================================================================
 #         ENFRIAMIENTO
@@ -343,7 +391,26 @@ def generacional():
         
 
 
-elemento, iteracion, valor, lista = generacional()
-print(elemento, iteracion, valor)
-plt.plot(lista)
-plt.show()
+#elemento, iteracion, valor, lista = generacional()
+#print(elemento, iteracion, valor)
+#plt.plot(lista)
+#plt.show()
+#
+#lista = ensenar_ruta(elemento)
+#print(lista)
+    
+suma1 = 0
+suma2 = 0
+suma3 = 0
+suma4 = 0
+
+for i in range(0,51):
+    suma1 += float(diccionario_factores[i][0])
+    suma2 += float(diccionario_factores[i][1]) 
+    suma3 += float(diccionario_factores[i][2]) 
+    suma4 += float(diccionario_factores[i][3]) 
+    
+print("Media factores etapa 1:",suma1/51)
+print("Media factores etapa 2:",suma2/51)
+print("Media factores etapa 3:",suma3/51)
+print("Media factores etapa 4:",suma4/51)
